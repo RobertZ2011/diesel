@@ -1,0 +1,9 @@
+[package]
+name = "dsc"
+version = "0.1.0"
+authors = ["Robert Zieba <robert@zieba.site>"]
+edition = "2018"
+
+[dependencies]
+nom = "6.1.2"
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm10-0"] }

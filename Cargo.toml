@@ -4,6 +4,15 @@ version = "0.1.0"
 authors = ["Robert Zieba <robert@zieba.site>"]
 edition = "2018"
 
+[[bin]]
+name = "dsc"
+path = "src/dsc.rs"
+
+[[bin]]
+name = "dsi"
+path = "src/dsi.rs"
+
 [dependencies]
 nom = "6.1.2"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm10-0"] }
+clap = "2.33.3"

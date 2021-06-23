@@ -7,17 +7,18 @@ use inkwell::values::{
 use std::collections::HashMap;
 use inkwell as llvm;
 
-use crate::ast::{
+use crate::parser::ast::{
     Expr,
-    BinOp
+    BinOp,
+    IfExpr
 };
 
 pub struct Builder<'ctx, 'md> {
     builder: llvm::builder::Builder<'ctx>,
     context: &'ctx llvm::context::Context,
     args: HashMap<String, BasicValueEnum<'ctx>>,
-    block: llvm::basic_block::BasicBlock<'ctx>,
-    module: &'md llvm::module::Module<'ctx>
+    module: &'md llvm::module::Module<'ctx>,
+    func: FunctionValue<'ctx>
 }
 
 impl<'ctx, 'md> Builder<'ctx, 'md> {
@@ -26,11 +27,12 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
             builder: context.create_builder(),
             context: context,
             args: HashMap::new(),
-            block: context.append_basic_block(func, "entry"),
-            module: module
+            module: module,
+            func: func
         };
 
-        builder.builder.position_at_end(builder.block);
+        let block = context.append_basic_block(func, "entry");
+        builder.builder.position_at_end(block);
 
         for (i, name) in args.iter().enumerate() {
             let value = func.get_nth_param(i as u32).unwrap();
@@ -52,6 +54,8 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
             Expr::Var(name) => self.build_var(&name),
             Expr::FunctionApp(name, args) => self.build_function_app(&name, &args),
             Expr::Block(exprs) => self.build_block(&exprs),
+            Expr::UnaryOp(_, expr) => self.build_deref(&expr),
+            Expr::If(IfExpr { cond, then_expr, else_expr }) => self.build_if(&cond, &then_expr, &else_expr),
             _ => panic!("")
         }
     }
@@ -61,7 +65,14 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
             BinOp::Add => self.build_add(lhs, rhs),
             BinOp::Sub => self.build_sub(lhs, rhs),
             BinOp::Mul => self.build_mul(lhs, rhs),
-            BinOp::Div => self.build_div(lhs, rhs)
+            BinOp::Div => self.build_div(lhs, rhs),
+            BinOp::Mod => self.build_mod(lhs, rhs),
+            BinOp::Eq => self.build_compare(llvm::IntPredicate::EQ, lhs, rhs),
+            BinOp::Ne => self.build_compare(llvm::IntPredicate::NE, lhs, rhs),
+            BinOp::Gt => self.build_compare(llvm::IntPredicate::SGT, lhs, rhs),
+            BinOp::Lt => self.build_compare(llvm::IntPredicate::SLT, lhs, rhs),
+            BinOp::Gte => self.build_compare(llvm::IntPredicate::SGE, lhs, rhs),
+            BinOp::Lte => self.build_compare(llvm::IntPredicate::SLE, lhs, rhs),
         }
     }
 
@@ -81,6 +92,12 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
         let lvalue = self.build_expr(lhs);
         let rvalue = self.build_expr(rhs);
         self.builder.build_int_mul(lvalue, rvalue, "mul")
+    }
+
+    fn build_mod(&self, lhs: &Expr, rhs: &Expr) -> IntValue<'ctx> {
+        let lvalue = self.build_expr(lhs);
+        let rvalue = self.build_expr(rhs);
+        self.builder.build_int_signed_rem(lvalue, rvalue, "mod")
     }
 
     fn build_div(&self, lhs: &Expr, rhs: &Expr) -> IntValue<'ctx> {
@@ -115,5 +132,42 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
         else {
             results[results.len() - 1]
         }
+    }
+
+    fn build_deref(&self, expr: &Expr) -> IntValue<'ctx> {
+        let ptr_type = self.context.i64_type().ptr_type(llvm::AddressSpace::Generic);
+        let res = self.build_expr(expr);
+        let ptr = self.builder.build_int_to_ptr(res, ptr_type, "cast");
+        self.builder.build_load(ptr, "load").into_int_value()
+    }
+
+    fn build_if(&self, cond_expr: &Expr, then_expr: &Expr, else_expr: &Expr) -> IntValue<'ctx> {
+        let cond_value = self.build_expr(cond_expr);
+        let compare = self.builder.build_int_compare(llvm::IntPredicate::NE, cond_value, self.build_const(0), "cmp");
+
+        let then_block = self.context.append_basic_block(self.func, "then");
+        let else_block = self.context.append_basic_block(self.func, "else");
+        let cont_block = self.context.append_basic_block(self.func, "cont");
+
+        self.builder.build_conditional_branch(compare, then_block, else_block);
+
+        self.builder.position_at_end(then_block);
+        let then_value = self.build_expr(then_expr);
+        self.builder.build_unconditional_branch(cont_block);
+
+        self.builder.position_at_end(else_block);
+        let else_value = self.build_expr(else_expr);
+        self.builder.build_unconditional_branch(cont_block);
+
+        self.builder.position_at_end(cont_block);
+        let phi = self.builder.build_phi(self.context.i64_type(), "phi");
+        phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
+        phi.as_basic_value().into_int_value()
+    }
+
+    fn build_compare(&self, op: llvm::IntPredicate, lhs: &Expr, rhs: &Expr) -> IntValue<'ctx> {
+        let lhs_expr = self.build_expr(lhs);
+        let rhs_expr = self.build_expr(rhs);
+        self.builder.build_int_compare(op, lhs_expr, rhs_expr, "cmp")
     }
 }

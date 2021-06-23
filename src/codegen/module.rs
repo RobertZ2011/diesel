@@ -1,6 +1,7 @@
 use inkwell as llvm;
-use crate::ast::Expr;
+use crate::parser::ast::Expr;
 use super::builder::Builder;
+use std::path::Path;
 
 pub struct Module<'ctx> {
     context: &'ctx llvm::context::Context,
@@ -9,9 +10,16 @@ pub struct Module<'ctx> {
 
 impl<'ctx> Module<'ctx> {
     pub fn new(context: &'ctx llvm::context::Context, name: &str) -> Module<'ctx> {
+        let module = context.create_module(name);
+        let fn_type = context.i64_type().fn_type(&[context.i64_type().into()], false);
+
+        module.add_function("atoi", fn_type, None);
+        module.add_function("puts", fn_type, None);
+        module.add_function("putchar", fn_type, None);
+
         Module {
             context: context,
-            module: context.create_module(name)
+            module: module
         }
     }
 
@@ -27,5 +35,9 @@ impl<'ctx> Module<'ctx> {
     pub fn dump(&self) {
         let result = self.module.print_to_string().to_string();
         println!("{}", result);
+    }
+
+    pub fn write_to_file(&self, target: &inkwell::targets::TargetMachine, path: &Path) {
+        target.write_to_file(&self.module, inkwell::targets::FileType::Object, path).expect("Failed to write object file");
     }
 }

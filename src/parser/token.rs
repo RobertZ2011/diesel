@@ -3,6 +3,12 @@ use std::iter::{
     IntoIterator
 };
 
+use crate::parser::parse_error::UnexpectedToken;
+
+use nom_locate::LocatedSpan;
+
+pub type Span<'a> = LocatedSpan<&'a str>;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     //Usual Arith
@@ -56,7 +62,7 @@ impl Op {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Token<'a> {
+pub enum TokenValue<'a> {
     Operator(Op),
     Identifier(&'a str),
     ConstInt(i64),
@@ -75,7 +81,8 @@ pub enum Token<'a> {
     RCBracket, //}
 
     //Misc
-    Comment
+    Comment,
+    Eof
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,63 +109,67 @@ pub enum TokenType {
     Eof
 }
 
-impl<'a> Token<'a> {
+impl<'a> TokenValue<'a> {
     pub fn token_type(&self) -> TokenType {
         match self {
-            Token::Operator(_) => TokenType::Operator,
-            Token::Identifier(_) => TokenType::Identifier,
-            Token::ConstInt(_) => TokenType::Int,
+            TokenValue::Operator(_) => TokenType::Operator,
+            TokenValue::Identifier(_) => TokenType::Identifier,
+            TokenValue::ConstInt(_) => TokenType::Int,
 
-            Token::Function => TokenType::Function,
-            Token::If => TokenType::If,
-            Token::Else => TokenType::Else,
+            TokenValue::Function => TokenType::Function,
+            TokenValue::If => TokenType::If,
+            TokenValue::Else => TokenType::Else,
 
-            Token::Comma => TokenType::Comma,
-            Token::Semicolon => TokenType::Semicolon,
-            Token::LParen => TokenType::LParen,
-            Token::RParen => TokenType::RParen,
-            Token::LCBracket => TokenType::LCBracket,
-            Token::RCBracket => TokenType::RCBracket,
+            TokenValue::Comma => TokenType::Comma,
+            TokenValue::Semicolon => TokenType::Semicolon,
+            TokenValue::LParen => TokenType::LParen,
+            TokenValue::RParen => TokenType::RParen,
+            TokenValue::LCBracket => TokenType::LCBracket,
+            TokenValue::RCBracket => TokenType::RCBracket,
 
-            Token::Comment => TokenType::Comment
+            TokenValue::Comment => TokenType::Comment,
+            TokenValue::Eof => TokenType::Eof
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct UnexpectedToken {
-    found: TokenType,
-    expected: Vec<TokenType>
+pub struct Token<'a> {
+    pub pos: Span<'a>,
+    pub value: TokenValue<'a>
 }
 
-impl UnexpectedToken {
-    pub fn multiple(expected: &[TokenType], found: TokenType) -> UnexpectedToken {
-        let mut ret = UnexpectedToken {
-            found: found,
-            expected: Vec::new()
-        };
-
-        ret.expected.extend_from_slice(expected);
-        ret
-    }
-
-    pub fn single(expected: TokenType, found: TokenType) -> UnexpectedToken {
-        UnexpectedToken {
-            expected: vec![expected],
-            found: found
+impl<'a> Token<'a> {
+    pub fn operator(op: Op, pos: Span) -> Token {
+        Token {
+            pos: pos,
+            value: TokenValue::Operator(op)
         }
     }
 
-    pub fn expected<'a>(&'a self) -> &'a [TokenType] {
-        self.expected.as_slice()
+    pub fn identifier(iden: &'a str, pos: Span<'a>) -> Token<'a> {
+        Token {
+            pos: pos,
+            value: TokenValue::Identifier(iden)
+        }
     }
 
-    pub fn found(&self) ->TokenType {
-        self.found
+    pub fn const_int(value: i64, pos: Span) -> Token {
+        Token {
+            pos: pos,
+            value: TokenValue::ConstInt(value)
+        }
+    }
+
+    pub fn eof() -> Token<'static> {
+        Token {
+            pos: Span::new(""),
+            value: TokenValue::Eof
+        }
     }
 }
 
-pub type TokenResult<T> = Result<T, UnexpectedToken>;
+pub type TokenResult<'a, T> = Result<T, UnexpectedToken<'a>>;
 
 #[derive(Debug)]
 pub struct TokenStream<'a, T: IntoIterator<Item = Token<'a>>> {
@@ -173,7 +184,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
     }
 
     pub fn peek_token_type(&mut self) -> Option<TokenType> {
-        while let Some(token_type) = self.iter.peek().map(|token| token.token_type()) {
+        while let Some(token_type) = self.iter.peek().map(|token| token.value.token_type()) {
             if token_type == TokenType::Comment {
                 let _ = self.consume();
             }
@@ -200,24 +211,24 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn expect_op(&mut self) -> TokenResult<Op> {
+    pub fn expect_op(&mut self) -> TokenResult<'a, Op> {
         self.skip_comments();
 
         if let Some(token) = self.iter.next() {
-            if let Token::Operator(op) = token {
+            if let Token { value: TokenValue::Operator(op), .. } = token {
                 Ok(op)
             }
             else {
-                Err(UnexpectedToken::single(TokenType::Operator, token.token_type()))
+                Err(UnexpectedToken::single(TokenType::Operator, token))
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Operator, TokenType::Eof))
+            Err(UnexpectedToken::single(TokenType::Operator, Token::eof()))
         }
     }
 
     pub fn consume_op(&mut self) -> Op {
-        if let Some(Token::Operator(op)) = self.iter.next() {
+        if let Some(Token { value: TokenValue::Operator(op), .. }) = self.iter.next() {
             op
         }
         else {
@@ -225,24 +236,24 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn expect_identifier(&mut self) -> TokenResult<&'a str> {
+    pub fn expect_identifier(&mut self) -> TokenResult<'a, &'a str> {
         self.skip_comments();
 
         if let Some(token) = self.iter.next() {
-            if let Token::Identifier(iden) = token {
+            if let Token { value: TokenValue::Identifier(iden), .. } = token {
                 Ok(iden)
             }
             else {
-                Err(UnexpectedToken::single(TokenType::Identifier, token.token_type()))
+                Err(UnexpectedToken::single(TokenType::Identifier, token))
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Identifier, TokenType::Eof))
+            Err(UnexpectedToken::single(TokenType::Identifier, Token::eof()))
         }
     }
 
     pub fn consume_identifier(&mut self) -> &'a str {
-        if let Some(Token::Identifier(iden)) = self.iter.next() {
+        if let Some(Token { value: TokenValue::Identifier(iden), .. }) = self.iter.next() {
             iden
         }
         else {
@@ -250,24 +261,24 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn expect_int(&mut self) -> TokenResult<i64> {
+    pub fn expect_int(&mut self) -> TokenResult<'a, i64> {
         self.skip_comments();
 
         if let Some(token) = self.iter.next() {
-            if let Token::ConstInt(value) = token {
+            if let Token { value: TokenValue::ConstInt(value), .. } = token {
                 Ok(value)
             }
             else {
-                Err(UnexpectedToken::single(TokenType::Int, token.token_type()))
+                Err(UnexpectedToken::single(TokenType::Int, token))
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Int, TokenType::Eof))
+            Err(UnexpectedToken::single(TokenType::Int, Token::eof()))
         }
     }
 
     pub fn consume_int(&mut self) -> i64 {
-        if let Some(Token::ConstInt(value)) = self.iter.next() {
+        if let Some(Token { value: TokenValue::ConstInt(value), .. }) = self.iter.next() {
             value
         }
         else {
@@ -275,31 +286,31 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn expect_function(&mut self) -> TokenResult<()> {
+    pub fn expect_function(&mut self) -> TokenResult<'a, ()> {
         self.skip_comments();
 
         if let Some(token) = self.iter.next() {
-            match token {
-                Token::Function => Ok(()),
-                _ => Err(UnexpectedToken::single(TokenType::Function, token.token_type()))
+            match token.value {
+                TokenValue::Function => Ok(()),
+                _ => Err(UnexpectedToken::single(TokenType::Function, token))
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Function, TokenType::Eof))
+            Err(UnexpectedToken::single(TokenType::Function, Token::eof()))
         }
     }
 
-    pub fn expect_lparen(&mut self) -> TokenResult<()> {
+    pub fn expect_lparen(&mut self) -> TokenResult<'a, ()> {
         self.skip_comments();
 
         if let Some(token) = self.iter.next() {
-            match token {
-                Token::LParen => Ok(()),
-                _ => Err(UnexpectedToken::single(TokenType::LParen, token.token_type()))
+            match token.value {
+                TokenValue::LParen => Ok(()),
+                _ => Err(UnexpectedToken::single(TokenType::LParen, token))
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Function, TokenType::Eof))
+            Err(UnexpectedToken::single(TokenType::Function, Token::eof()))
         }
     }
 }

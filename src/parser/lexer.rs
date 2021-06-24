@@ -7,74 +7,98 @@ use nom::{
     multi::many0
 };
 
+use nom_locate::position;
+
 use crate::parser::token::{
     Token,
+    TokenValue,
     Op,
-    TokenStream
+    TokenStream,
+    Span
 };
 
-fn identifier<'a>(i: &'a str) -> IResult<&'a str, Token<'a>> {
-    let(i, iden) = alpha1(i)?;
-    Ok((i, Token::Identifier(iden)))
+fn identifier(s: Span) -> IResult<Span, Token> {
+    let (s, iden) = alpha1(s)?;
+    let (s, pos) = position(s)?;
+    let token = Token::identifier(&iden, pos);
+    Ok((s, token))
 }
 
-fn const_int<'a>(i: &'a str) -> IResult<&'a str, Token<'a>> {
-    let (i, digits) = digit1(i)?;
-    Ok((i, Token::ConstInt(digits.parse::<i64>().unwrap())))
+fn const_int(s: Span) -> IResult<Span, Token> {
+    let (s, digits) = digit1(s)?;
+    let (s, pos) = position(s)?;
+    let token = Token::const_int(digits.parse::<i64>().unwrap(), pos);
+    Ok((s, token))
 }
 
-fn operator<'a>(i: &'a str) -> IResult<&'a str, Token<'a>> {
-    let (i, op) = alt((
-        |i| tag("+")(i).map(|(i, _)| (i, Op::Add)),
-        |i| tag("-")(i).map(|(i, _)| (i, Op::Sub)),
-        |i| tag("*")(i).map(|(i, _)| (i, Op::Mul)),
-        |i| tag("/")(i).map(|(i, _)| (i, Op::Div)),
-        |i| tag("%")(i).map(|(i, _)| (i, Op::Mod)),
+fn operator(s: Span) -> IResult<Span, Token> {
+    let (s, op) = alt((
+        |s| tag("+")(s).map(|(s, _)| (s, Op::Add)),
+        |s| tag("-")(s).map(|(s, _)| (s, Op::Sub)),
+        |s| tag("*")(s).map(|(s, _)| (s, Op::Mul)),
+        |s| tag("/")(s).map(|(s, _)| (s, Op::Div)),
+        |s| tag("%")(s).map(|(s, _)| (s, Op::Mod)),
 
-        |i| tag("==")(i).map(|(i, _)| (i, Op::Eq)),
-        |i| tag("!=")(i).map(|(i, _)| (i, Op::Ne)),
-        |i| tag(">=")(i).map(|(i, _)| (i, Op::Gte)),
-        |i| tag("<=")(i).map(|(i, _)| (i, Op::Lte)),
-        |i| tag(">")(i).map(|(i, _)| (i, Op::Gt)),
-        |i| tag("<")(i).map(|(i, _)| (i, Op::Lt)),
+        |s| tag("==")(s).map(|(s, _)| (s, Op::Eq)),
+        |s| tag("!=")(s).map(|(s, _)| (s, Op::Ne)),
+        |s| tag(">=")(s).map(|(s, _)| (s, Op::Gte)),
+        |s| tag("<=")(s).map(|(s, _)| (s, Op::Lte)),
+        |s| tag(">")(s).map(|(s, _)| (s, Op::Gt)),
+        |s| tag("<")(s).map(|(s, _)| (s, Op::Lt)),
 
-        |i| tag("@")(i).map(|(i, _)| (i, Op::Deref))
-    ))(i)?;
+        |s| tag("@")(s).map(|(s, _)| (s, Op::Deref))
+    ))(s)?;
+    let (s, pos) = position(s)?;
 
-    Ok((i, Token::Operator(op)))
+    Ok((s, Token::operator(op, pos)))
 }
 
-fn keyword<'a>(i: &'a str) -> IResult<&'a str, Token<'a>> {
-    alt((
-        |i| tag("function")(i).map(|(i, _)| (i, Token::Function)),
-        |i| tag("if")(i).map(|(i, _)| (i, Token::If)),
-        |i| tag("else")(i).map(|(i, _)| (i, Token::Else))
-    ))(i)
+fn keyword(s: Span) -> IResult<Span, Token> {
+    let (s, value) = alt((
+        |s| tag("function")(s).map(|(s, _)| (s, TokenValue::Function)),
+        |s| tag("if")(s).map(|(s, _)| (s, TokenValue::If)),
+        |s| tag("else")(s).map(|(s, _)| (s, TokenValue::Else))
+    ))(s)?;
+
+    let (s, pos) = position(s)?;
+    let token = Token {
+        pos: pos,
+        value: value
+    };
+    Ok((s, token))
 }
 
-fn symbol<'a>(i: &'a str) -> IResult<&'a str, Token<'a>> {
-    alt((
-        |i| tag(",")(i).map(|(i, _)| (i, Token::Comma)),
-        |i| tag(";")(i).map(|(i, _)| (i, Token::Semicolon)),
-        |i| tag("(")(i).map(|(i, _)| (i, Token::LParen)),
-        |i| tag(")")(i).map(|(i, _)| (i, Token::RParen)),
-        |i| tag("{")(i).map(|(i, _)| (i, Token::LCBracket)),
-        |i| tag("}")(i).map(|(i, _)| (i, Token::RCBracket))
-    ))(i)
+fn symbol(s: Span) -> IResult<Span, Token> {
+    let (s, value) = alt((
+        |s| tag(",")(s).map(|(s, _)| (s, TokenValue::Comma)),
+        |s| tag(";")(s).map(|(s, _)| (s, TokenValue::Semicolon)),
+        |s| tag("(")(s).map(|(s, _)| (s, TokenValue::LParen)),
+        |s| tag(")")(s).map(|(s, _)| (s, TokenValue::RParen)),
+        |s| tag("{")(s).map(|(s, _)| (s, TokenValue::LCBracket)),
+        |s| tag("}")(s).map(|(s, _)| (s, TokenValue::RCBracket))
+    ))(s)?;
+
+    let (s, pos) = position(s)?;
+    let token = Token {
+        pos: pos,
+        value: value
+    };
+
+    Ok((s, token))
 }
 
-fn token<'a>(i: &'a str) -> IResult<&'a str, Token<'a>> {
-    let (i, _) = multispace0(i)?;
+fn token(s: Span) -> IResult<Span, Token> {
+    let (s, _) = multispace0(s)?;
     alt((
         keyword,
         identifier,
         const_int,
         operator,
         symbol
-    ))(i)
+    ))(s)
 }
 
-pub fn tokens<'a>(i: &'a str) -> IResult<&'a str, TokenStream<'a, Vec<Token<'a>>>> {
-    let (i, tokens) = many0(token)(i)?;
-    Ok((i, TokenStream::new(tokens)))
+pub fn tokens(s: Span) -> IResult<Span, TokenStream<Vec<Token>>> {
+    let (s, tokens) = many0(token)(s)?;
+    Ok((s, TokenStream::new(tokens)))
 }

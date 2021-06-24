@@ -1,6 +1,7 @@
 pub mod lexer;
 pub mod token;
 pub mod ast;
+pub mod parse_error;
 
 use std::{
     collections::VecDeque,
@@ -17,12 +18,15 @@ use crate::parser::{
         IfExpr
     },
     token::{
-        Token, 
+        Token,
+        TokenValue,
         TokenStream,
         TokenType,
-        UnexpectedToken,
         Op,
         OpAssociativity
+    },
+    parse_error::{
+        UnexpectedToken
     }
 };
 
@@ -48,7 +52,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         }
     }
 
-    pub fn parse(mut self) -> Result<Module, UnexpectedToken> {
+    pub fn parse(mut self) -> Result<Module, UnexpectedToken<'a>> {
         while let Some(token_type) = self.stream.peek_token_type() {
             match token_type {
                 TokenType::Function => self.parse_function_def()?,
@@ -59,7 +63,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         Ok(self.module)
     }
 
-    fn parse_function_def(&mut self) -> Result<(), UnexpectedToken> {
+    fn parse_function_def(&mut self) -> Result<(), UnexpectedToken<'a>> {
         let _ = self.stream.expect_function()?;
         let name = self.stream.expect_identifier()?;
         let _ = self.stream.expect_lparen();
@@ -69,15 +73,16 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             let res = self.stream.consume();
             if res.is_none() {
                 //Ran out of input
-                return Err(UnexpectedToken::single(TokenType::Identifier, TokenType::Eof));
+                return Err(UnexpectedToken::single(TokenType::Identifier, Token::eof()));
             }
             else {
-                let token = res.unwrap();
-                if token == Token::RParen {
+                let token_res = res.unwrap();
+                let Token { value: token, .. } = token_res;
+                if token == TokenValue::RParen {
                     //args list finished
                     break;
                 }
-                else if let Token::Identifier(iden) = token {
+                else if let TokenValue::Identifier(iden) = token {
                     args.push(iden);
                     if let Some(TokenType::Comma) = self.stream.peek_token_type() {
                         //Consume the comma if there is one
@@ -86,7 +91,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                     }
                 }
                 else {
-                    return Err(UnexpectedToken::multiple(&[TokenType::Identifier, TokenType::RParen], token.token_type()));
+                    return Err(UnexpectedToken::multiple(&[TokenType::Identifier, TokenType::RParen], token_res));
                 }
             }
         }
@@ -176,7 +181,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         }
     }
 
-    fn parse_expr(&mut self) -> Result<Box<Expr>, UnexpectedToken> {
+    fn parse_expr(&mut self) -> Result<Box<Expr>, UnexpectedToken<'a>> {
         let mut output: VecDeque<Box<Expr>> = VecDeque::new();
         let mut operators: VecDeque<Operator<'a>> = VecDeque::new();
         let mut func_args: VecDeque<usize> = VecDeque::new();
@@ -191,6 +196,20 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             if token_type == TokenType::Int {
                 let value = self.stream.consume_int();
                 output.push_back(Box::new(Expr::ConstInt(value)));
+
+                if if_level > 0 {
+                    while let Some(op) = operators.pop_front() {
+                        if op != Operator::If {
+                            if !Self::generate_operator_expr(&mut output, &mut func_args, op) {
+                                panic!("Failed to generate operator expression");
+                            }
+                        }
+                        else {
+                            operators.push_front(op);
+                            break;
+                        }
+                    }
+                }
             }
             else if token_type == TokenType::Identifier {
                 let iden = self.stream.consume_identifier();
@@ -207,11 +226,39 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                         //Just treat this as a variable for now
                         //TODO: make this check the next token
                         output.push_back(Box::new(Expr::Var(String::from(iden))));
+
+                        if if_level > 0 {
+                            while let Some(op) = operators.pop_front() {
+                                if op != Operator::If {
+                                    if !Self::generate_operator_expr(&mut output, &mut func_args, op) {
+                                        panic!("Failed to generate operator expression");
+                                    }
+                                }
+                                else {
+                                    operators.push_front(op);
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
                 else {
                     //No next token, just treat this an a variable
                     output.push_back(Box::new(Expr::Var(String::from(iden))));
+
+                    if if_level > 0 {
+                        while let Some(op) = operators.pop_front() {
+                            if op != Operator::If {
+                                if !Self::generate_operator_expr(&mut output, &mut func_args, op) {
+                                    panic!("Failed to generate operator expression");
+                                }
+                            }
+                            else {
+                                operators.push_front(op);
+                                break;
+                            }
+                        }
+                    }
                 }
             }
             else if token_type == TokenType::Operator {
@@ -340,17 +387,6 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             else if token_type == TokenType::Else {
                 let _ = self.stream.consume();
                 if_level -= 1;
-
-                while let Some(operator) = operators.pop_front() {
-                    if operator == Operator::If {
-                        break;
-                    }
-                    else {
-                        if !Self::generate_operator_expr(&mut output, &mut func_args, operator) {
-                            panic!("Failed to generate operator expression");
-                        }   
-                    }
-                }
             }
             else {
                 break;

@@ -5,6 +5,7 @@ use crate::parser::{
         Definition
     },
     lexer::tokens,
+    token::Span,
     Parser
 };
 use crate::codegen::module::Module as CModule;
@@ -13,8 +14,9 @@ use std::fs::read_to_string;
 
 pub fn compile_module(context: &llvm::context::Context, target: &inkwell::targets::TargetMachine, input: &Path, output: &Path) {
     let src = read_to_string(input).expect("Failed to read source file");
+    let s = Span::new(&src);
 
-    let (_, token_stream) = tokens(&src).expect("Parse error");
+    let (_, token_stream) = tokens(s).expect("Parse error");
     let parser = Parser::new(token_stream);
     let ast_module = parser.parse().expect("Parse error");
     let codegen_module = CModule::new(context, &src);

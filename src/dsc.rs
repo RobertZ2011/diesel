@@ -61,28 +61,22 @@ fn main() {
         CodeModel::Default
     ).unwrap();
  
-    if let Some(compile_args) = args.subcommand_matches("compile") {
-        let mut obj_files = Vec::new();
+    let mut obj_files = Vec::new();
 
-        for src in compile_args.values_of("input").unwrap() {
-            let input = Path::new(src);
-            let output = input.with_extension("o");
+    for src in args.values_of("input").unwrap() {
+        let input = Path::new(src);
+        let output = input.with_extension("o");
 
-            compiler::compile_module(&context, &targetMachine, input, &output);
-            obj_files.push(output);
-        }
-
-        let output = compile_args.value_of("output").unwrap();
-        let mut args = vec!["-o", output];
-        let mut obj_strs = obj_files.iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
-        args.append(&mut obj_strs);
-        Command::new("gcc")
-            .args(args)
-            .spawn()
-            .expect("Failed to link");
-
+        compiler::compile_module(&context, &targetMachine, input, &output);
+        obj_files.push(output);
     }
-    else {
-        println!("Unimplemented");
-    }
+
+    let output = args.value_of("output").unwrap();
+    let mut args = vec!["-o", output];
+    let mut obj_strs = obj_files.iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+    args.append(&mut obj_strs);
+    Command::new("gcc")
+        .args(args)
+        .spawn()
+        .expect("Failed to link");
 }

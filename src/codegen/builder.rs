@@ -168,6 +168,7 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
     fn build_compare(&self, op: llvm::IntPredicate, lhs: &Expr, rhs: &Expr) -> IntValue<'ctx> {
         let lhs_expr = self.build_expr(lhs);
         let rhs_expr = self.build_expr(rhs);
-        self.builder.build_int_compare(op, lhs_expr, rhs_expr, "cmp")
+        let res = self.builder.build_int_compare(op, lhs_expr, rhs_expr, "cmp");
+        self.builder.build_int_z_extend(res, self.context.i64_type(), "cast")
     }
 }

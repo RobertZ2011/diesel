@@ -24,5 +24,6 @@ pub fn compile_module(context: &llvm::context::Context, target: &inkwell::target
         codegen_module.build_function(&name, &args, &expr);
     }
 
+    codegen_module.dump();
     codegen_module.write_to_file(target, output);
 }

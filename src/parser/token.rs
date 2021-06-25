@@ -101,8 +101,8 @@ pub enum TokenType {
     Semicolon,
     LParen, //(
     RParen, //)
-    LCBracket, //{
-    RCBracket, //}
+    LBrace, //{
+    RBrace, //}
 
     //Misc
     Comment,
@@ -124,8 +124,8 @@ impl<'a> TokenValue<'a> {
             TokenValue::Semicolon => TokenType::Semicolon,
             TokenValue::LParen => TokenType::LParen,
             TokenValue::RParen => TokenType::RParen,
-            TokenValue::LCBracket => TokenType::LCBracket,
-            TokenValue::RCBracket => TokenType::RCBracket,
+            TokenValue::LCBracket => TokenType::LBrace,
+            TokenValue::RCBracket => TokenType::RBrace,
 
             TokenValue::Comment => TokenType::Comment,
             TokenValue::Eof => TokenType::Eof

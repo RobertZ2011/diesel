@@ -227,9 +227,10 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn consume_op(&mut self) -> Op {
-        if let Some(Token { value: TokenValue::Operator(op), .. }) = self.iter.next() {
-            op
+    pub fn consume_op(&mut self) -> (Token<'a>, Op) {
+        let token = self.iter.next();
+        if let Some(Token { value: TokenValue::Operator(op), .. }) = token {
+            (token.unwrap(), op)
         }
         else {
             panic!("consume_op: next token is not an operator")
@@ -252,9 +253,10 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn consume_identifier(&mut self) -> &'a str {
-        if let Some(Token { value: TokenValue::Identifier(iden), .. }) = self.iter.next() {
-            iden
+    pub fn consume_identifier(&mut self) -> (Token<'a>, &'a str) {
+        let token = self.iter.next();
+        if let Some(Token { value: TokenValue::Identifier(iden), .. }) = token {
+            (token.unwrap(), iden)
         }
         else {
             panic!("consume_identifer: next token is not an identifier");
@@ -277,9 +279,10 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
     }
 
-    pub fn consume_int(&mut self) -> i64 {
-        if let Some(Token { value: TokenValue::ConstInt(value), .. }) = self.iter.next() {
-            value
+    pub fn consume_int(&mut self) -> (Token<'a>, i64) {
+        let token = self.iter.next();
+        if let Some(Token { value: TokenValue::ConstInt(value), .. }) = token {
+            (token.unwrap(), value)
         }
         else {
             panic!("consume_int: next token is not an int")

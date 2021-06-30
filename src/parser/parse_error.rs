@@ -1,6 +1,7 @@
 use crate::parser::{
     Token,
-    TokenType
+    TokenType,
+    Op
 };
 
 #[derive(Clone, Debug)]
@@ -33,5 +34,39 @@ impl<'a> UnexpectedToken<'a> {
 
     pub fn found(&self) -> Token<'a> {
         self.found.clone()
+    }
+}
+
+#[derive(Debug)]
+pub struct OperandMismatch<'a> {
+    pub token: Token<'a>,
+    pub operator: Op,
+    pub found: usize
+}
+
+#[derive(Debug)]
+pub enum ParseError<'a> {
+    UnexpectedToken(UnexpectedToken<'a>),
+    OperandMismatch(OperandMismatch<'a>),
+
+    MismatchedBrace(Token<'a>),
+    MismatchedParen(Token<'a>)
+}
+
+impl<'a> ParseError<'a> {
+    pub fn operand_mismatch<T>(token: Token<'a>, operator: Op, found: usize) -> Result<T, ParseError<'a>> {
+        Err(ParseError::OperandMismatch(OperandMismatch{
+            token: token,
+            operator: operator,
+            found: found
+        }))
+    }
+
+    pub fn unexpected_token<T>(expected: TokenType, found: Token<'a>) -> Result<T, ParseError<'a>> {
+        Err(ParseError::UnexpectedToken(UnexpectedToken::single(expected, found)))
+    }
+
+    pub fn unexpected_token_multi<T>(expected: &[TokenType], found: Token<'a>) -> Result<T, ParseError<'a>> {
+        Err(ParseError::UnexpectedToken(UnexpectedToken::multiple(expected, found)))
     }
 }

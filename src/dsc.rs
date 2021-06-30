@@ -27,15 +27,13 @@ fn main() {
             .required(true)
             .takes_value(true)
         )
-        .arg(Arg::with_name("display")
-            .short("d")
-            .long("display")
-            .value_name("DISPLAY")
-            .help("displays (t)okens from lexer, (a)bstract syntax treex, intermediate (r)epresentation, a(s)sembly")
-            .multiple(true)
-            .takes_value(true)
-            .possible_values(&["t", "a", "r", "s"])
-            .max_values(4)
+        .arg(Arg::with_name("emit-ir")
+            .long("emit-ir")
+            .help("Emit LLVM IR")
+        )
+        .arg(Arg::with_name("emit-asm")
+            .long("emit-asm")
+            .help("Emit assembly")
         )
         .arg(Arg::with_name("input")
             .required(true)
@@ -52,7 +50,7 @@ fn main() {
     Target::initialize_x86(&InitializationConfig::default());
     let triple = TargetMachine::get_default_triple();
     let target = Target::from_triple(&triple).unwrap();
-    let targetMachine = target.create_target_machine(
+    let target_machine = target.create_target_machine(
         &triple,
         "",
         "",
@@ -67,7 +65,7 @@ fn main() {
         let input = Path::new(src);
         let output = input.with_extension("o");
 
-        compiler::compile_module(&context, &targetMachine, input, &output);
+        compiler::compile_module(&context, &target_machine, input, &output);
         obj_files.push(output);
     }
 

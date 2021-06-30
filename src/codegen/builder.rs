@@ -169,6 +169,6 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
         let lhs_expr = self.build_expr(lhs);
         let rhs_expr = self.build_expr(rhs);
         let res = self.builder.build_int_compare(op, lhs_expr, rhs_expr, "cmp");
-        self.builder.build_int_z_extend(res, self.context.i64_type(), "cast")
+        self.builder.build_int_cast(res, self.context.i64_type(), "cast")
     }
 }

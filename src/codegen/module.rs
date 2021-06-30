@@ -3,14 +3,14 @@ use crate::parser::ast::Expr;
 use super::builder::Builder;
 use std::path::Path;
 
-pub struct Module<'ctx> {
+pub struct Module<'ctx, 'a> {
     context: &'ctx llvm::context::Context,
-    module: llvm::module::Module<'ctx>
+    module: &'a llvm::module::Module<'ctx>,
+    fpm: &'a llvm::passes::PassManager<llvm::values::FunctionValue<'ctx>>
 }
 
-impl<'ctx> Module<'ctx> {
-    pub fn new(context: &'ctx llvm::context::Context, name: &str) -> Module<'ctx> {
-        let module = context.create_module(name);
+impl<'ctx, 'a> Module<'ctx, 'a> {
+    pub fn new(context: &'ctx llvm::context::Context, module: &'a llvm::module::Module<'ctx>, fpm: &'a llvm::passes::PassManager<llvm::values::FunctionValue<'ctx>>) -> Module<'ctx, 'a> {
         let fn_type = context.i64_type().fn_type(&[context.i64_type().into()], false);
 
         module.add_function("atoi", fn_type, None);
@@ -19,7 +19,8 @@ impl<'ctx> Module<'ctx> {
 
         Module {
             context: context,
-            module: module
+            module: module,
+            fpm
         }
     }
 
@@ -30,6 +31,13 @@ impl<'ctx> Module<'ctx> {
         let builder = Builder::new(self.context, &self.module, args, func);
 
         builder.build_ret(expr);
+
+        if func.verify(false) {
+            self.fpm.run_on(&func);
+        }
+        else {
+            panic!("Couldn't verify function");
+        }
     }
 
     pub fn dump(&self) {

@@ -16,10 +16,18 @@ pub fn compile_module(context: &llvm::context::Context, target: &inkwell::target
     let src = read_to_string(input).expect("Failed to read source file");
     let s = Span::new(&src);
 
+    let llvm_module = context.create_module("");
+
+    let fpm = llvm::passes::PassManager::create(&llvm_module);
+    fpm.add_tail_call_elimination_pass();
+    fpm.add_instruction_combining_pass();
+    fpm.add_reassociate_pass();
+    fpm.initialize();
+
     let (_, token_stream) = tokens(s).expect("Parse error");
     let parser = Parser::new(token_stream);
     let ast_module = parser.parse().expect("Parse error");
-    let codegen_module = CModule::new(context, &src);
+    let codegen_module = CModule::new(context, &llvm_module, &fpm);
 
     for definition in ast_module.definitions {
         let Definition::Function(name, args, expr) = definition;

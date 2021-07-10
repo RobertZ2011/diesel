@@ -75,7 +75,9 @@ fn symbol(s: Span) -> IResult<Span, Token> {
         |s| tag("(")(s).map(|(s, _)| (s, TokenValue::LParen)),
         |s| tag(")")(s).map(|(s, _)| (s, TokenValue::RParen)),
         |s| tag("{")(s).map(|(s, _)| (s, TokenValue::LCBracket)),
-        |s| tag("}")(s).map(|(s, _)| (s, TokenValue::RCBracket))
+        |s| tag("}")(s).map(|(s, _)| (s, TokenValue::RCBracket)),
+        |s| tag(":")(s).map(|(s, _)| (s, TokenValue::Colon)),
+        |s| tag("->")(s).map(|(s, _)| (s, TokenValue::RArrow))
     ))(s)?;
 
     let (s, pos) = position(s)?;
@@ -93,8 +95,8 @@ fn token(s: Span) -> IResult<Span, Token> {
         keyword,
         identifier,
         const_int,
-        operator,
-        symbol
+        symbol,
+        operator
     ))(s)
 }
 

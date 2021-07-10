@@ -1,5 +1,5 @@
 use inkwell as llvm;
-use crate::parser::ast::Expr;
+use crate::parser::expr::BasicExpr;
 use super::builder::Builder;
 use std::path::Path;
 
@@ -24,7 +24,7 @@ impl<'ctx, 'a> Module<'ctx, 'a> {
         }
     }
 
-    pub fn build_function(&self, name: &str, args: &Vec<String>, expr: &Box<Expr>) {
+    pub fn build_function<'e>(&self, name: &str, args: &Vec<String>, expr: &Box<BasicExpr<'e>>) {
         let arg_types = vec![self.context.i64_type().into(); args.len()];
         let fn_type = self.context.i64_type().fn_type(arg_types.as_slice(), false);
         let func = self.module.add_function(name, fn_type, None);

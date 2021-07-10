@@ -1,20 +1,19 @@
 pub mod lexer;
 pub mod token;
-pub mod ast;
+pub mod expr;
 pub mod parse_error;
+pub mod module;
 
 use std::{
     collections::VecDeque,
     iter::IntoIterator
 };
 
-use crate::parser::{
-    ast::{
-        Expr,
+use self::{
+    expr::{
+        BasicExpr,
         BinOp,
         UnaryOp,
-        Module,
-        Definition,
         IfExpr
     },
     token::{
@@ -29,6 +28,10 @@ use crate::parser::{
         UnexpectedToken,
         OperandMismatch,
         ParseError
+    },
+    module::{
+        Module,
+        Definition
     }
 };
 
@@ -49,9 +52,9 @@ pub struct Operator<'a> {
 
 pub struct Parser<'a, T: IntoIterator<Item = Token<'a>>> {
     stream: TokenStream<'a, T>,
-    module: Module,
+    module: Module<'a>,
 
-    output: VecDeque<Box<Expr>>,
+    output: VecDeque<Box<BasicExpr<'a>>>,
     func_args: VecDeque<usize>, //keeps track of arguments passed to a function
     block_args: VecDeque<usize> //keeps track of exprs passed to a block
 }
@@ -68,7 +71,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         }
     }
 
-    pub fn parse(mut self) -> Result<Module, ParseError<'a>> {
+    pub fn parse(mut self) -> Result<Module<'a>, ParseError<'a>> {
         while let Some(token_type) = self.stream.peek_token_type() {
             match token_type {
                 TokenType::Function => self.parse_function_def()?,
@@ -127,8 +130,8 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             if op.is_unary() {
                 if len >= 1 {
                     let expr = self.output.pop_back().unwrap();
-                    let unary_op = UnaryOp::from_op(op);
-                    let new_expr = Box::new(Expr::UnaryOp(unary_op, expr));
+                    let unary_op = UnaryOp::from(op);
+                    let new_expr = BasicExpr::unary_op(token, unary_op, expr);
                     self.output.push_back(new_expr);
                 }
                 else {
@@ -140,8 +143,8 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                 if len >= 2 {
                     let rhs = self.output.pop_back().unwrap();
                     let lhs = self.output.pop_back().unwrap();
-                    let bin_op = BinOp::from_op(op);
-                    let new_expr = Box::new(Expr::BinOp(bin_op, lhs, rhs));
+                    let bin_op = BinOp::from(op);
+                    let new_expr = BasicExpr::bin_op(token, bin_op, lhs, rhs);
                     self.output.push_back(new_expr);
                 }
                 else {
@@ -158,7 +161,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                 args.push(self.output.pop_back().unwrap());
             }
 
-            let expr = Box::new(Expr::FunctionApp(String::from(iden), args));
+            let expr = BasicExpr::function_app(token, String::from(iden), args);
             self.output.push_back(expr);
         }
         else if value == OperatorValue::Block {
@@ -170,7 +173,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                 exprs.push(self.output.pop_back().unwrap());
             }
 
-            let expr = Box::new(Expr::Block(exprs));
+            let expr = BasicExpr::block(token, exprs);
             self.output.push_back(expr);
             
         }
@@ -180,12 +183,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                 let then_expr = self.output.pop_back().unwrap();
                 let cond_expr = self.output.pop_back().unwrap();
 
-                let expr = Box::new(Expr::If(IfExpr {
-                    cond: cond_expr,
-                    then_expr: then_expr,
-                    else_expr: else_expr
-                }));
-
+                let expr = BasicExpr::conditional(token, cond_expr, then_expr, else_expr);
                 self.output.push_back(expr);
             }
         }
@@ -196,7 +194,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         Ok(())
     }
 
-    fn parse_expr(&mut self) -> Result<Box<Expr>, ParseError<'a>> {
+    fn parse_expr(&mut self) -> Result<Box<BasicExpr<'a>>, ParseError<'a>> {
         let mut operators: VecDeque<Operator<'a>> = VecDeque::new();
         let mut if_level = 0;
 
@@ -205,8 +203,8 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             println!("{:?}\n", operators);
 
             if token_type == TokenType::Int {
-                let (_, value) = self.stream.consume_int();
-                self.output.push_back(Box::new(Expr::ConstInt(value)));
+                let (token, value) = self.stream.consume_int();
+                self.output.push_back(BasicExpr::const_int(token, value));
 
                 if if_level > 0 {
                     while let Some(operator) = operators.pop_front() {
@@ -234,7 +232,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                     else {
                         //Just treat this as a variable for now
                         //TODO: make this check the next token
-                        self.output.push_back(Box::new(Expr::Var(String::from(iden))));
+                        self.output.push_back(BasicExpr::var(token, String::from(iden)));
 
                         if if_level > 0 {
                             while let Some(operator) = operators.pop_front() {
@@ -252,7 +250,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                 }
                 else {
                     //No next token, just treat this an a variable
-                    self.output.push_back(Box::new(Expr::Var(String::from(iden))));
+                    self.output.push_back(BasicExpr::var(token, String::from(iden)));
 
                     if if_level > 0 {
                         while let Some(operator) = operators.pop_front() {

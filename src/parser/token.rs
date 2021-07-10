@@ -75,6 +75,8 @@ pub enum TokenValue<'a> {
     //Symbols
     Comma,
     Semicolon,
+    Colon,
+    RArrow, //->
     LParen, //(
     RParen, //)
     LCBracket, //{
@@ -99,6 +101,8 @@ pub enum TokenType {
     //Symbols
     Comma,
     Semicolon,
+    Colon,
+    RArrow,
     LParen, //(
     RParen, //)
     LBrace, //{
@@ -122,6 +126,8 @@ impl<'a> TokenValue<'a> {
 
             TokenValue::Comma => TokenType::Comma,
             TokenValue::Semicolon => TokenType::Semicolon,
+            TokenValue::Colon => TokenType::Colon,
+            TokenValue::RArrow => TokenType::RArrow,
             TokenValue::LParen => TokenType::LParen,
             TokenValue::RParen => TokenType::RParen,
             TokenValue::LCBracket => TokenType::LBrace,

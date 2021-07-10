@@ -1,6 +1,6 @@
 use inkwell as llvm;
 use crate::parser::{
-    ast::{ 
+    module::{ 
         Module as AModule,
         Definition
     },

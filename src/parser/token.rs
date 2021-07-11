@@ -61,11 +61,13 @@ impl Op {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenValue<'a> {
     Operator(Op),
     Identifier(&'a str),
     ConstInt(i64),
+    ConstBool(bool),
+    ConstDouble(f64),
 
     //Key words
     Function,
@@ -82,6 +84,12 @@ pub enum TokenValue<'a> {
     LCBracket, //{
     RCBracket, //}
 
+    //Types
+    Unit,
+    Int,
+    Double,
+    Bool,
+
     //Misc
     Comment,
     Eof
@@ -91,7 +99,9 @@ pub enum TokenValue<'a> {
 pub enum TokenType {
     Identifier,
     Operator,
-    Int,
+    ConstInt,
+    ConstBool,
+    ConstDouble,
 
     //Key words
     Function,
@@ -108,6 +118,12 @@ pub enum TokenType {
     LBrace, //{
     RBrace, //}
 
+    //Types
+    Unit,
+    Int,
+    Double,
+    Bool,
+
     //Misc
     Comment,
     Eof
@@ -118,7 +134,9 @@ impl<'a> TokenValue<'a> {
         match self {
             TokenValue::Operator(_) => TokenType::Operator,
             TokenValue::Identifier(_) => TokenType::Identifier,
-            TokenValue::ConstInt(_) => TokenType::Int,
+            TokenValue::ConstInt(_) => TokenType::ConstInt,
+            TokenValue::ConstBool(_) => TokenType::ConstBool,
+            TokenValue::ConstDouble(_) => TokenType::ConstDouble,
 
             TokenValue::Function => TokenType::Function,
             TokenValue::If => TokenType::If,
@@ -132,6 +150,11 @@ impl<'a> TokenValue<'a> {
             TokenValue::RParen => TokenType::RParen,
             TokenValue::LCBracket => TokenType::LBrace,
             TokenValue::RCBracket => TokenType::RBrace,
+
+            TokenValue::Unit => TokenType::Unit,
+            TokenValue::Int => TokenType::ConstInt,
+            TokenValue::Double => TokenType::Double,
+            TokenValue::Bool => TokenType::Bool,
 
             TokenValue::Comment => TokenType::Comment,
             TokenValue::Eof => TokenType::Eof
@@ -277,11 +300,11 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
                 Ok(value)
             }
             else {
-                Err(UnexpectedToken::single(TokenType::Int, token))
+                Err(UnexpectedToken::single(TokenType::ConstInt, token))
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Int, Token::eof()))
+            Err(UnexpectedToken::single(TokenType::ConstInt, Token::eof()))
         }
     }
 

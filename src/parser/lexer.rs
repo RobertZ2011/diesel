@@ -31,6 +31,37 @@ fn const_int(s: Span) -> IResult<Span, Token> {
     Ok((s, token))
 }
 
+fn const_unit(s: Span) -> IResult<Span, Token> {
+    let (s, _) = tag("Unit")(s)?;
+    let (s, pos) = position(s)?;
+    let token = Token {
+        pos: pos,
+        value: TokenValue::Unit
+    };
+    Ok((s, token))
+}
+
+fn const_bool(s: Span) -> IResult<Span, Token> {
+    let (s, value) = alt((
+        |s| tag("true")(s).map(|(s, _)| (s, TokenValue::ConstBool(true))),
+        |s| tag("false")(s).map(|(s, _)| (s, TokenValue::ConstBool(false)))
+    ))(s)?;
+    let (s, pos) = position(s)?;
+    let token = Token {
+        pos: pos,
+        value: value
+    };
+    Ok((s, token))
+}
+
+fn constant(s: Span) -> IResult<Span, Token> {
+    alt((
+        const_int,
+        const_unit,
+        const_bool
+    ))(s)
+}
+
 fn operator(s: Span) -> IResult<Span, Token> {
     let (s, op) = alt((
         |s| tag("+")(s).map(|(s, _)| (s, Op::Add)),
@@ -68,6 +99,22 @@ fn keyword(s: Span) -> IResult<Span, Token> {
     Ok((s, token))
 }
 
+fn kind(s: Span) -> IResult<Span, Token> {
+    let (s, kind) = alt((
+        |s| tag("Unit")(s).map(|(s, _)| (s, TokenValue::Unit)),
+        |s| tag("Int")(s).map(|(s, _)| (s, TokenValue::Int)),
+        |s| tag("Bool")(s).map(|(s, _)| (s, TokenValue::Bool)),
+        |s| tag("Double")(s).map(|(s, _)| (s, TokenValue::Double))
+    ))(s)?;
+
+    let (s, pos) = position(s)?;
+    let token = Token {
+        pos: pos,
+        value: kind
+    };
+    Ok((s, token))
+}
+
 fn symbol(s: Span) -> IResult<Span, Token> {
     let (s, value) = alt((
         |s| tag(",")(s).map(|(s, _)| (s, TokenValue::Comma)),
@@ -94,7 +141,7 @@ fn token(s: Span) -> IResult<Span, Token> {
     alt((
         keyword,
         identifier,
-        const_int,
+        constant,
         symbol,
         operator
     ))(s)

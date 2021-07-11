@@ -202,7 +202,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             println!("{:?}", self.output);
             println!("{:?}\n", operators);
 
-            if token_type == TokenType::Int {
+            if token_type == TokenType::ConstInt {
                 let (token, value) = self.stream.consume_int();
                 self.output.push_back(BasicExpr::const_int(token, value));
 

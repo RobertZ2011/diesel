@@ -11,8 +11,7 @@ pub use expr_value::{
 };
 pub use typed_expr::TypedExpr;
 pub use r#type::{ 
-    Scope, 
-    SymbolTable, 
+    SymbolTable,
     Type 
 };
 pub use op::{
@@ -21,4 +20,3 @@ pub use op::{
 };
 
 pub trait Expr {}
-

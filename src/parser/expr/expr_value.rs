@@ -18,9 +18,7 @@ pub enum ExprValue<E: Expr> {
     //Constant values
     ConstUnit,
     ConstInt(i64),
-    ConstUint(u64),
     ConstBool(bool),
-    ConstFloat(f32),
     ConstDouble(f64),
 
     //Operators

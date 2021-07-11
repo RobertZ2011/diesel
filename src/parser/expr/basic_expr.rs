@@ -19,6 +19,10 @@ pub struct BasicExpr<'a> {
 impl<'a> Expr for BasicExpr<'a> {}
 
 impl<'a> BasicExpr<'a> {
+    pub fn token(&self) -> &Token<'a> {
+        return &self.token;
+    }
+
     pub fn unary_op(token: Token<'a>, op: UnaryOp, expr: Box<BasicExpr<'a>>) -> Box<BasicExpr<'a>> {
         Box::new(BasicExpr {
             token: token,

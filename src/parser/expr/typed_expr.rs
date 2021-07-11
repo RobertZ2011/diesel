@@ -8,6 +8,9 @@ use super::{
 
 use crate::parser::token::Token;
 
+use std::borrow::Borrow;
+
+#[derive(Debug)]
 pub struct TypedExpr<'a> {
     token: Token<'a>,
     /// Not actually a kind, but avoids having to call it r#type
@@ -84,5 +87,11 @@ impl<'a> TypedExpr<'a> {
             kind: kind,
             value: ExprValue::Var(iden.clone())
         })
+    }
+}
+
+impl<'a> Borrow<ExprValue<TypedExpr<'a>>> for TypedExpr<'a> {
+    fn borrow(&self) -> &ExprValue<TypedExpr<'a>> {
+        return &self.value;
     }
 }

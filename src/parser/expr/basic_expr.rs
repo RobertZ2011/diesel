@@ -69,6 +69,27 @@ impl<'a> BasicExpr<'a> {
         })
     }
 
+    pub fn const_bool(token: Token<'a>, value: bool) -> Box<BasicExpr<'a>> {
+        Box::new(BasicExpr {
+            token: token,
+            value: ExprValue::ConstBool(value)
+        })
+    }
+
+    pub fn const_double(token: Token<'a>, value: f64) -> Box<BasicExpr<'a>> {
+        Box::new(BasicExpr {
+            token: token,
+            value: ExprValue::ConstDouble(value)
+        })
+    }
+
+    pub fn const_unit(token: Token<'a>) -> Box<BasicExpr<'a>> {
+        Box::new(BasicExpr {
+            token: token,
+            value: ExprValue::ConstUnit
+        })
+    }
+
     pub fn var(token: Token<'a>, iden: String) -> Box<BasicExpr<'a>> {
         Box::new(BasicExpr {
             token: token,

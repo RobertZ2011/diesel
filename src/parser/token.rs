@@ -162,6 +162,18 @@ impl<'a> TokenValue<'a> {
     }
 }
 
+impl TokenType {
+    pub fn is_constant(self) -> bool {
+        match self {
+            TokenType::ConstInt |
+            TokenType::ConstBool |
+            TokenType::ConstDouble |
+            TokenType::Unit => true,
+            _ => false
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
     pub pos: Span<'a>,
@@ -315,6 +327,36 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
         }
         else {
             panic!("consume_int: next token is not an int")
+        }
+    }
+
+    pub fn consume_bool(&mut self) -> (Token<'a>, bool) {
+        let token = self.iter.next();
+        if let Some(Token { value: TokenValue::ConstBool(value), .. }) = token {
+            (token.unwrap(), value)
+        }
+        else {
+            panic!("consume_bool: next token is not a boolean")
+        }
+    }
+
+    pub fn consume_double(&mut self) -> (Token<'a>, f64) {
+        let token = self.iter.next();
+        if let Some(Token { value: TokenValue::ConstDouble(value), .. }) = token {
+            (token.unwrap(), value)
+        }
+        else {
+            panic!("consume_double: next token is not a double")
+        }
+    }
+
+    pub fn consume_unit(&mut self) -> Token<'a> {
+        let token = self.iter.next();
+        if let Some(Token { value: TokenValue::Unit, .. }) = token {
+            token.unwrap()
+        }
+        else {
+            panic!("consume_unit: next token is not unit")
         }
     }
 

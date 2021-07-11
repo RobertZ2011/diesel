@@ -1,18 +1,18 @@
-use super::expr::BasicExpr;
+use super::expr::Expr;
 
-#[derive(Clone, Debug)]
-pub enum Definition<'a> {
-    Function(String, Vec<String>, Box<BasicExpr<'a>>)
+#[derive(Debug)]
+pub enum Definition<E: Expr> {
+    Function(String, Vec<String>, Box<E>)
 }
 
-#[derive(Clone, Debug)]
-pub struct Module<'a> {
-    pub definitions: Vec<Definition<'a>>
+#[derive(Debug)]
+pub struct Module<E: Expr> {
+    pub definitions: Vec<Definition<E>>
 }
 
-impl<'a> Module<'a> {
-    pub fn new() -> Module<'a> {
-        Module {
+impl<E: Expr> Module<E> {
+    pub fn new() -> Module<E> {
+        Module::<E> {
             definitions: Vec::new()
         }
     }

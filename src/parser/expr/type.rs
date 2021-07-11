@@ -21,11 +21,26 @@ pub enum Type {
     Unit,
     Bool,
     Int,
-    Float,
+    Double,
 
     Function(Vec<Box<Type>>, Box<Type>)
 }
 
+impl Type {
+    pub fn is_integer(self) -> bool {
+        match self {
+            Type::Int => true,
+            _ => false
+        }
+    }
+
+    pub fn is_float(self) -> bool {
+        match self {
+            Type::Double => true,
+            _ => false
+        }
+    }
+}
 
 /// Structure to store type information, support pushing and pop scopes in a stack
 pub struct SymbolTable {
@@ -33,6 +48,16 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
+    pub fn new() -> SymbolTable {
+        let mut table = SymbolTable {
+            scopes: VecDeque::new()
+        };
+
+        //Create the root scope
+        table.scopes.push_back(HashMap::new());
+        table
+    }
+
     pub fn push_scope(&mut self) {
         self.scopes.push_back(HashMap::new());
     }
@@ -68,6 +93,12 @@ pub type TypeError = (Type, Type);
 pub type TypeResult<T> = Result<T, TypeError>;
 
 impl TypeChecker {
+    pub fn new() -> TypeChecker {
+        TypeChecker {
+            symbol_table: SymbolTable::new()
+        }
+    }
+
     pub fn type_check<'a>(&mut self, value: &BasicExpr<'a>) -> TypeResult<Box<TypedExpr<'a>>> {
         let expr = value.borrow();
         let token = value.token().clone();
@@ -146,10 +177,10 @@ impl TypeChecker {
     fn unify_arith<'a>(&self, lhs: &Type, rhs: &Type) -> TypeResult<Type> {
         match (lhs, rhs) {
             (Type::Int, Type::Int) => Ok(Type::Int),
-            (Type::Float, Type::Float) => Ok(Type::Float),
+            (Type::Double, Type::Double) => Ok(Type::Double),
 
-            (Type::Int, Type::Float) |
-            (Type::Float, Type::Int) => Ok(Type::Float),
+            (Type::Int, Type::Double) |
+            (Type::Double, Type::Int) => Ok(Type::Double),
 
             _ => Err((lhs.clone(), rhs.clone()))
         }
@@ -158,9 +189,9 @@ impl TypeChecker {
     fn unify_compare<'a>(&self, lhs: &Type, rhs: &Type) -> TypeResult<Type> {
         match (lhs, rhs) {
             (Type::Int, Type::Int) |
-            (Type::Float, Type::Float) |
-            (Type::Int, Type::Float) |
-            (Type::Float, Type::Int)  => Ok(Type::Bool),
+            (Type::Double, Type::Double) |
+            (Type::Int, Type::Double) |
+            (Type::Double, Type::Int)  => Ok(Type::Bool),
 
             _ => Err((lhs.clone(), rhs.clone()))
         }

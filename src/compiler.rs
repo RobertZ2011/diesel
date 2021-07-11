@@ -29,11 +29,11 @@ pub fn compile_module(context: &llvm::context::Context, target: &inkwell::target
     let ast_module = parser.parse().expect("Parse error");
     let codegen_module = CModule::new(context, &llvm_module, &fpm);
 
-    for definition in ast_module.definitions {
+    /*for definition in ast_module.definitions {
         let Definition::Function(name, args, expr) = definition;
         codegen_module.build_function(&name, &args, &expr);
     }
 
     codegen_module.dump();
-    codegen_module.write_to_file(target, output);
+    codegen_module.write_to_file(target, output);*/
 }

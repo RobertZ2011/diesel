@@ -19,4 +19,4 @@ pub use op::{
     UnaryOp
 };
 
-pub trait Expr {}
+pub trait Expr where Self: std::fmt::Debug {}

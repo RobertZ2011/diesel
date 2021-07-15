@@ -27,14 +27,14 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_integer(self) -> bool {
+    pub fn is_integer(&self) -> bool {
         match self {
             Type::Int => true,
             _ => false
         }
     }
 
-    pub fn is_float(self) -> bool {
+    pub fn is_float(&self) -> bool {
         match self {
             Type::Double => true,
             _ => false
@@ -108,7 +108,7 @@ impl TypeChecker {
             ExprValue::ConstBool(value) => TypedExpr::const_bool(token, *value),
             ExprValue::BinOp(op, lhs, rhs) => self.type_check_bin_op(token, *op, lhs, rhs)?,
             ExprValue::Block(exprs) => self.type_check_block(token, exprs)?,
-            ExprValue::If(IfExpr { cond: cond, then_expr: then_expr, else_expr: else_expr }) => self.type_check_conditional(token, cond, then_expr, else_expr)?, 
+            ExprValue::If(IfExpr { cond, then_expr, else_expr }) => self.type_check_conditional(token, cond, then_expr, else_expr)?, 
             ExprValue::Var(iden) => self.type_check_var(token, iden)?,
             _ => panic!("")
         };

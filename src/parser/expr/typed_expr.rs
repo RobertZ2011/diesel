@@ -67,7 +67,7 @@ impl<'a> TypedExpr<'a> {
     }
 
     pub fn conditional(token: Token<'a>, cond_expr: Box<TypedExpr<'a>>, then_expr: Box<TypedExpr<'a>>, else_expr: Box<TypedExpr<'a>>) -> Box<TypedExpr<'a>> {
-        assert_eq!(cond_expr.kind(), Type::Bool);
+        assert_eq!(*cond_expr.kind(), Type::Bool);
         assert_eq!(then_expr.kind(), else_expr.kind());
 
         Box::new(TypedExpr {

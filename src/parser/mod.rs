@@ -366,7 +366,8 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         println!("{:?}\n", self.operators);
 
         while self.output.len() > 1 && self.operators.len() > 0{
-            let _ = self.generate_operator_expr(self.operators.pop_front().unwrap())?;
+            let front = self.operators.pop_front().unwrap();
+            let _ = self.generate_operator_expr(front)?;
         }
 
         if self.output.len() == 1 {

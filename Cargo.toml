@@ -15,5 +15,5 @@ path = "src/dsi.rs"
 [dependencies]
 nom = "6.1.2"
 nom_locate = "3.0.1"
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm10-0"] }
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"] }
 clap = "2.33.3"

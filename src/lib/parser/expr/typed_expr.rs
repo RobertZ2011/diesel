@@ -3,7 +3,8 @@ use super::{
     Type,
     ExprValue,
     IfExpr,
-    BinOp
+    BinOp,
+    UnaryOp
 };
 
 use crate::parser::token::Token;
@@ -57,6 +58,14 @@ impl<'a> TypedExpr<'a> {
         })
     }
 
+    pub fn unary_op(token: Token<'a>, kind: Type, op: UnaryOp, expr: Box<TypedExpr<'a>>) -> Box<TypedExpr<'a>> {
+        Box::new(TypedExpr {
+            token: token,
+            kind: kind,
+            value: ExprValue::UnaryOp(op, expr)
+        })
+    }
+
     pub fn block(token: Token<'a>, exprs: Vec<Box<TypedExpr<'a>>>) -> Box<TypedExpr<'a>> {
         let block_type = if exprs.len() == 0 { Type::Unit } else { exprs[exprs.len() - 1].kind().clone() };
         Box::new(TypedExpr {
@@ -86,6 +95,14 @@ impl<'a> TypedExpr<'a> {
             token: token,
             kind: kind,
             value: ExprValue::Var(iden.clone())
+        })
+    }
+
+    pub fn function_app(token: Token<'a>, kind: Type, iden: String, args: Vec<Box<TypedExpr<'a>>>) -> Box<TypedExpr<'a>> {
+        Box::new(TypedExpr {
+            token: token,
+            kind: kind,
+            value: ExprValue::FunctionApp(iden, args)
         })
     }
 }

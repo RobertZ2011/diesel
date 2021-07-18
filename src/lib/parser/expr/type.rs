@@ -11,7 +11,8 @@ use super::{
     BasicExpr,
     TypedExpr,
     ExprValue,
-    BinOp
+    BinOp,
+    UnaryOp
 };
 
 use crate::parser::token::Token;
@@ -23,7 +24,7 @@ pub enum Type {
     Int,
     Double,
 
-    Function(Vec<Box<Type>>, Box<Type>)
+    Function(Vec<Type>, Box<Type>)
 }
 
 impl Type {
@@ -43,6 +44,7 @@ impl Type {
 }
 
 /// Structure to store type information, support pushing and pop scopes in a stack
+#[derive(Clone)]
 pub struct SymbolTable {
     scopes: VecDeque<HashMap<String, Type>>
 }
@@ -93,10 +95,14 @@ pub type TypeError = (Type, Type);
 pub type TypeResult<T> = Result<T, TypeError>;
 
 impl TypeChecker {
-    pub fn new() -> TypeChecker {
+    pub fn new(symbol_table: SymbolTable) -> TypeChecker {
         TypeChecker {
-            symbol_table: SymbolTable::new()
+            symbol_table: symbol_table
         }
+    }
+
+    pub fn symbol_table(&mut self) -> &mut SymbolTable {
+        &mut self.symbol_table
     }
 
     pub fn type_check<'a>(&mut self, value: &BasicExpr<'a>) -> TypeResult<Box<TypedExpr<'a>>> {
@@ -106,10 +112,15 @@ impl TypeChecker {
             ExprValue::ConstUnit => TypedExpr::const_unit(token),
             ExprValue::ConstInt(value) => TypedExpr::const_int(token, *value),
             ExprValue::ConstBool(value) => TypedExpr::const_bool(token, *value),
+
             ExprValue::BinOp(op, lhs, rhs) => self.type_check_bin_op(token, *op, lhs, rhs)?,
+            ExprValue::UnaryOp(op, expr) => self.type_check_unary_op(token, *op, expr)?,
+
             ExprValue::Block(exprs) => self.type_check_block(token, exprs)?,
             ExprValue::If(IfExpr { cond, then_expr, else_expr }) => self.type_check_conditional(token, cond, then_expr, else_expr)?, 
             ExprValue::Var(iden) => self.type_check_var(token, iden)?,
+            ExprValue::FunctionApp(name, args) => self.type_check_func_app(token, name, args)?,
+
             _ => panic!("")
         };
 
@@ -136,6 +147,16 @@ impl TypeChecker {
         }?;
 
         Ok(TypedExpr::bin_op(token, result_type, op, typed_lhs, typed_rhs))
+    }
+
+    fn type_check_unary_op<'a>(&mut self, token: Token<'a>, op: UnaryOp, expr: &BasicExpr<'a>) -> TypeResult<Box<TypedExpr<'a>>> {
+        let typed_expr = self.type_check(expr)?;
+
+        if *typed_expr.kind() != Type::Int {
+            return Err((typed_expr.kind().clone(), Type::Int));
+        }
+
+        Ok(TypedExpr::unary_op(token, Type::Int, op, typed_expr))
     }
 
     fn type_check_block<'a>(&mut self, token: Token<'a>, exprs: &Vec<Box<BasicExpr<'a>>>) -> TypeResult<Box<TypedExpr<'a>>> {
@@ -171,7 +192,31 @@ impl TypeChecker {
     }
 
     fn type_check_func_app<'a>(&mut self, token: Token<'a>, iden: &String, args: &Vec<Box<BasicExpr<'a>>>) -> TypeResult<Box<TypedExpr<'a>>> {
-        unimplemented!()
+        let typed_args = args.iter().map(|expr| self.type_check(expr)).collect::<TypeResult<Vec<Box<TypedExpr<'a>>>>>()?;
+        let func_type = self.symbol_table.lookup(iden).expect("Undefined function").clone();
+
+        let mut ret_type = Type::Unit;
+        if let Type::Function(arg_types, ret) = func_type {
+            if arg_types.len() != args.len() {
+                panic!("Function argument count mismatch");
+            }
+
+            //Type check the passed args vs arg types
+            let passed_types = typed_args.iter().map(|expr| expr.kind().clone());
+            let zipped = passed_types.zip(arg_types.iter().map(|t| t.clone())).collect::<Vec<(Type, Type)>>();
+            for (a, b) in zipped {
+                if a != b {
+                    panic!("Mismatched function args");
+                }
+            }
+
+            ret_type = *ret.clone();
+        }
+        else {
+            panic!("Attempt to call a non-function");
+        }
+
+        Ok(TypedExpr::function_app(token, ret_type, iden.clone(), typed_args))
     }
 
     fn unify_arith<'a>(&self, lhs: &Type, rhs: &Type) -> TypeResult<Type> {

@@ -384,7 +384,21 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> TokenStream<'a, T> {
             }
         }
         else {
-            Err(UnexpectedToken::single(TokenType::Function, Token::eof()))
+            Err(UnexpectedToken::single(TokenType::LParen, Token::eof()))
+        }
+    }
+
+    pub fn expect_colon(&mut self) -> TokenResult<'a, ()> {
+        self.skip_comments();
+
+        if let Some(token) = self.iter.next() {
+            match token.value {
+                TokenValue::Colon => Ok(()),
+                _ => Err(UnexpectedToken::single(TokenType::Colon, token))
+            }
+        }
+        else {
+            Err(UnexpectedToken::single(TokenType::Colon, Token::eof()))
         }
     }
 }

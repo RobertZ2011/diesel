@@ -6,11 +6,15 @@ edition = "2018"
 
 [[bin]]
 name = "dsc"
-path = "src/dsc.rs"
+path = "src/dsc/main.rs"
 
 [[bin]]
 name = "dsi"
-path = "src/dsi.rs"
+path = "src/dsi/main.rs"
+
+[lib]
+name = "diesel_lib"
+path = "src/lib/lib.rs"
 
 [dependencies]
 nom = "6.1.2"

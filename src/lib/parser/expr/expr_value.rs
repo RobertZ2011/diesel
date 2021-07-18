@@ -4,6 +4,11 @@ use super::{
     UnaryOp
 };
 
+use std::fmt::{
+    Debug,
+    Formatter
+};
+
 #[derive(Clone, Debug)]
 pub struct IfExpr<E: Expr> {
     pub cond: Box<E>,

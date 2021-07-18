@@ -12,7 +12,9 @@ pub use expr_value::{
 pub use typed_expr::TypedExpr;
 pub use r#type::{ 
     SymbolTable,
-    Type 
+    Type,
+    TypeChecker,
+    TypeResult
 };
 pub use op::{
     BinOp,

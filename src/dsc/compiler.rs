@@ -1,14 +1,19 @@
 use inkwell as llvm;
-use crate::parser::{
-    module::{ 
-        Module as AModule,
-        Definition
-    },
-    lexer::tokens,
-    token::Span,
-    Parser
+use diesel_lib::{
+    parser::{
+        module::{ 
+            Module as AModule,
+            Definition
+        },
+        lexer::tokens,
+        token::Span,
+        Parser,
+        expr::{
+            TypedExpr
+        }
+    }
 };
-use crate::codegen::module::Module as CModule;
+use diesel_lib::codegen::module::Module as CModule;
 use std::path::Path;
 use std::fs::read_to_string;
 
@@ -29,11 +34,16 @@ pub fn compile_module(context: &llvm::context::Context, target: &inkwell::target
     let ast_module = parser.parse().expect("Parse error");
     let codegen_module = CModule::new(context, &llvm_module, &fpm);
 
-    /*for definition in ast_module.definitions {
+    //type check
+    let typed_module = ast_module.type_check().expect("Type error");
+    println!("{:#?}", typed_module.definitions);
+
+    for definition in typed_module.definitions {
         let Definition::Function(name, args, expr) = definition;
-        codegen_module.build_function(&name, &args, &expr);
+        let arg_names = args.iter().map(|(s, _)| s.clone()).collect();
+        codegen_module.build_function(&name, &arg_names, &expr);
     }
 
     codegen_module.dump();
-    codegen_module.write_to_file(target, output);*/
+    codegen_module.write_to_file(target, output);
 }

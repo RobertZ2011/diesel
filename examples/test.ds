@@ -1,0 +1,12 @@
+function factorial(n: Int) -> Int {
+    if n == 0 {
+        1
+    }
+    else {
+        n * factorial(n - 1)
+    }
+}
+
+function main(argc: Int, argv: Int) {
+    factorial(atoi(@(argv + 8)))
+}

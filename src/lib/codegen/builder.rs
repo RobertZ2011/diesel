@@ -161,7 +161,7 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
             self.builder.build_float_mul(lvalue.into_float_value(), rvalue.into_float_value(), "fmul").as_basic_value_enum()
         }
         else {
-            panic!("Unsupported type for +")
+            panic!("Unsupported type for *")
         };
 
         Some(res)
@@ -223,7 +223,7 @@ impl<'ctx, 'md> Builder<'ctx, 'md> {
                     .left()
                     .unwrap();
 
-        if *kind != Type::Unit {
+        if *kind == Type::Unit {
             None
         }
         else {

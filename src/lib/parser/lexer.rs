@@ -140,6 +140,7 @@ fn token(s: Span) -> IResult<Span, Token> {
     let (s, _) = multispace0(s)?;
     alt((
         keyword,
+        kind,
         identifier,
         constant,
         symbol,

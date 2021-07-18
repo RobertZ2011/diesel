@@ -14,7 +14,7 @@ use self::{
         BasicExpr,
         BinOp,
         UnaryOp,
-        IfExpr
+        Type
     },
     token::{
         Token,
@@ -25,13 +25,10 @@ use self::{
         OpAssociativity
     },
     parse_error::{
-        UnexpectedToken,
-        OperandMismatch,
         ParseError
     },
     module::{
-        Module,
-        Definition
+        BasicModule
     }
 };
 
@@ -52,7 +49,7 @@ pub struct Operator<'a> {
 
 pub struct Parser<'a, T: IntoIterator<Item = Token<'a>>> {
     stream: TokenStream<'a, T>,
-    module: Module<BasicExpr<'a>>,
+    module: BasicModule<'a>,
 
     output: VecDeque<Box<BasicExpr<'a>>>, //output stack
     operators: VecDeque<Operator<'a>>, //operator stack
@@ -66,7 +63,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
     pub fn new(stream: TokenStream<'a, T> ) -> Parser<'a, T> {
         Parser {
             stream: stream,
-            module: Module::new(),
+            module: BasicModule::new(),
 
             output: VecDeque::new(),
             operators: VecDeque::new(),
@@ -77,7 +74,7 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         }
     }
 
-    pub fn parse(mut self) -> Result<Module<BasicExpr<'a>>, ParseError<'a>> {
+    pub fn parse(mut self) -> Result<BasicModule<'a>, ParseError<'a>> {
         while let Some(token_type) = self.stream.peek_token_type() {
             match token_type {
                 TokenType::Function => self.parse_function_def()?,
@@ -92,8 +89,9 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         let _ = self.stream.expect_function().map_err(ParseError::UnexpectedToken)?;
         let name = self.stream.expect_identifier().map_err(ParseError::UnexpectedToken)?;
         let _ = self.stream.expect_lparen();
+        let mut ret_type = Type::Unit;
 
-        let mut args: Vec<&str> = Vec::new();
+        let mut args: Vec<(String, Type)> = Vec::new();
         loop {
             let res = self.stream.consume();
             if res.is_none() {
@@ -105,10 +103,24 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
                 let Token { value: token, .. } = token_res;
                 if token == TokenValue::RParen {
                     //args list finished
+                    //See if there's a return type
+                    let next_type = self.stream.peek_token_type();
+                    if next_type == Some(TokenType::RArrow) {
+                        //We have an actual function type
+                        let _ = self.stream.consume();
+                        ret_type = self.parse_type()?;
+                    }
+
                     break;
                 }
                 else if let TokenValue::Identifier(iden) = token {
-                    args.push(iden);
+                    //Parse the argument's type
+                    let _ = self.stream.expect_colon().map_err(ParseError::UnexpectedToken)?;
+                    let iden_string = iden.to_string();
+                    let arg_type = self.parse_type()?;
+
+                    args.push((iden_string, arg_type));
+
                     if let Some(TokenType::Comma) = self.stream.peek_token_type() {
                         //Consume the comma if there is one
                         //If the next token isn't an identifier or comma, the next iteration will catch it
@@ -122,9 +134,8 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
         }
 
         let expr = self.parse_expr()?;
-
-        let def = Definition::Function(String::from(name), args.into_iter().map(String::from).collect(), expr);
-        self.module.definitions.push(def);
+        let name_str = name.to_string();
+        self.module.define_func(&name_str, &ret_type, &args, expr);
 
         Ok(())
     }
@@ -399,6 +410,30 @@ impl<'a, T: IntoIterator<Item = Token<'a>>> Parser<'a, T> {
             }
             _ => panic!("parse_constant called when next token does not represent a constant")
         }
+    }
+
+    fn parse_type(&mut self) -> Result<Type, ParseError<'a>> {
+        let token = self.stream.consume();
+                    if let Some(Token { value, .. }) = token {
+                        match value {
+                            TokenValue::Int => Ok(Type::Int),
+                            TokenValue::Double => Ok(Type::Double),
+                            TokenValue::Bool => Ok(Type::Bool),
+                            TokenValue::Unit => Ok(Type::Unit),
+                            _ => return ParseError::unexpected_token_multi(&[
+                                TokenType::Int, 
+                                TokenType::Double, 
+                                TokenType::Bool,
+                                TokenType::Unit], token.unwrap())
+                        }
+                    }
+                    else {
+                        return ParseError::unexpected_token_multi(&[
+                            TokenType::Int, 
+                            TokenType::Double, 
+                            TokenType::Bool,
+                            TokenType::Unit], Token::eof());
+                    }
     }
 
     /// Ensure that operators are grouped together properly when there are one or more conditional expressions in the stack

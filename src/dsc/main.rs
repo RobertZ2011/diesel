@@ -1,7 +1,3 @@
-mod parser;
-mod codegen;
-mod compiler;
-
 use std::path::Path;
 use std::io::stdin;
 use inkwell as llvm;
@@ -9,10 +5,12 @@ use inkwell::targets::{Target, TargetTriple, TargetMachine, RelocMode, CodeModel
 use inkwell::OptimizationLevel;
 use std::process::Command;
 
-use crate::parser::{
+use diesel_lib::parser::{
     lexer::tokens,
     Parser
 };
+
+mod compiler;
 
 use clap::{App, Arg};
 
@@ -47,7 +45,7 @@ fn main() {
 
     let context = llvm::context::Context::create();
 
-    Target::initialize_x86(&InitializationConfig::default());
+    Target::initialize_aarch64(&InitializationConfig::default());
     let triple = TargetMachine::get_default_triple();
     let target = Target::from_triple(&triple).unwrap();
     let target_machine = target.create_target_machine(
@@ -73,7 +71,7 @@ fn main() {
     let mut args = vec!["-o", output];
     let mut obj_strs = obj_files.iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
     args.append(&mut obj_strs);
-    Command::new("gcc")
+    Command::new("clang")
         .args(args)
         .spawn()
         .expect("Failed to link");
